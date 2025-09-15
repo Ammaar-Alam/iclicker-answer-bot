@@ -56,4 +56,56 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
       }
     });
   }
+
+// Vision analysis request handler
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message && message.type === "vision.analyze") {
+    const { imageUrl, prompt } = message;
+    chrome.storage.local.get(
+      ["openaiKey", "visionModel", "visionTemp"],
+      async (cfg) => {
+        const apiKey = cfg.openaiKey || "";
+        const model = cfg.visionModel || "gpt-5-mini";
+        const temperature = typeof cfg.visionTemp === "number" ? cfg.visionTemp : 0.2;
+        if (!apiKey) {
+          sendResponse({ error: "missing_key" });
+          return;
+        }
+        try {
+          const res = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: prompt || "Extract all legible text and summarize any diagrams." },
+                    { type: "image_url", image_url: { url: imageUrl } }
+                  ]
+                }
+              ],
+              temperature
+            })
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            sendResponse({ error: `openai_http_${res.status}`, details: errText.slice(0, 300) });
+            return;
+          }
+          const data = await res.json();
+          const text = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "";
+          sendResponse({ text });
+        } catch (e) {
+          sendResponse({ error: "openai_fetch_error" });
+        }
+      }
+    );
+    return true; // keep the message channel open for async sendResponse
+  }
+});
   

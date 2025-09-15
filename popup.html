@@ -45,6 +45,40 @@
         </label>
       </section>
 
+      <section class="card">
+        <h2 class="card-title">AI Image Assist</h2>
+        <label class="switch">
+          <input id="aiImageAssist" type="checkbox" />
+          <span class="slider" aria-hidden="true"></span>
+          <span class="label-text">Analyze image questions with OpenAI</span>
+        </label>
+
+        <div id="aiSettings" style="margin-top: 12px; display: none;">
+          <label class="field-label" for="openaiKey">OpenAI API Key</label>
+          <div class="grid-2">
+            <input id="openaiKey" type="password" placeholder="sk-..." class="input" />
+            <button id="saveOpenaiKey" class="btn btn-secondary">Save</button>
+          </div>
+
+          <div class="grid-2" style="margin-top: 8px;">
+            <div>
+              <label class="field-label" for="visionModel">Vision Model</label>
+              <select id="visionModel" class="select">
+                <option value="gpt-5-mini" selected>gpt-5-mini</option>
+                <option value="gpt-4o">gpt-4o</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="visionTemp">Temperature</label>
+              <input id="visionTemp" type="number" step="0.1" min="0" max="2" value="0.2" class="input" />
+            </div>
+          </div>
+
+          <label class="field-label" for="visionPrompt" style="margin-top: 8px;">Prompt (optional)</label>
+          <textarea id="visionPrompt" rows="3" class="input" placeholder="Extract all legible text and summarize any diagrams."></textarea>
+        </div>
+      </section>
+
       <section id="mapContainer" class="card" style="display:none;">
         <h2 class="card-title">Location</h2>
         <label class="field-label">Select Princeton building</label>

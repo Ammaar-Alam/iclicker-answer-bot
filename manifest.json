@@ -22,7 +22,8 @@
     ],
     "host_permissions": [
       "https://student.iclicker.com/*",
-      "https://api.iclicker.com/*"
+      "https://api.iclicker.com/*",
+      "https://api.openai.com/*"
     ],
     "content_scripts": [
       {

@@ -23,6 +23,14 @@ const buildingSelect = document.getElementById("buildingSelect");
 const latInput = document.getElementById("latInput");
 const lngInput = document.getElementById("lngInput");
 const setCustomLocationBtn = document.getElementById("setCustomLocation");
+// AI settings
+const aiImageAssistCheckbox = document.getElementById("aiImageAssist");
+const aiSettings = document.getElementById("aiSettings");
+const openaiKeyInput = document.getElementById("openaiKey");
+const saveOpenaiKeyBtn = document.getElementById("saveOpenaiKey");
+const visionModelSelect = document.getElementById("visionModel");
+const visionPromptText = document.getElementById("visionPrompt");
+const visionTempInput = document.getElementById("visionTemp");
 
 /**
  * On DOMContentLoaded, load existing settings from storage,
@@ -30,7 +38,18 @@ const setCustomLocationBtn = document.getElementById("setCustomLocation");
  */
 document.addEventListener("DOMContentLoaded", () => {
   chrome.storage.local.get(
-    ["status", "random", "autoJoin", "locationSpoof", "spoofedLocation"],
+    [
+      "status",
+      "random",
+      "autoJoin",
+      "locationSpoof",
+      "spoofedLocation",
+      "aiImageAssist",
+      "openaiKey",
+      "visionModel",
+      "visionPrompt",
+      "visionTemp"
+    ],
     (result) => {
       // Show the correct Start/Stop state
       if (result.status === "started") {
@@ -65,6 +84,24 @@ document.addEventListener("DOMContentLoaded", () => {
             lngInput.value = lng;
           }
         }
+      }
+
+      // AI settings
+      if (typeof result.aiImageAssist === "boolean") {
+        aiImageAssistCheckbox.checked = result.aiImageAssist;
+        aiSettings.style.display = result.aiImageAssist ? "block" : "none";
+      }
+      if (typeof result.openaiKey === "string" && result.openaiKey) {
+        openaiKeyInput.value = result.openaiKey;
+      }
+      if (typeof result.visionModel === "string") {
+        visionModelSelect.value = result.visionModel;
+      }
+      if (typeof result.visionPrompt === "string") {
+        visionPromptText.value = result.visionPrompt;
+      }
+      if (typeof result.visionTemp === "number") {
+        visionTempInput.value = String(result.visionTemp);
       }
     }
   );
@@ -190,6 +227,49 @@ clearLocationBtn.addEventListener("click", () => {
     chrome.tabs.sendMessage(tabs[0].id, { from: "popup", msg: "clearLocation" });
   });
 });
+
+// AI: toggle analyze image questions
+if (aiImageAssistCheckbox) {
+  aiImageAssistCheckbox.addEventListener("click", () => {
+    const enabled = aiImageAssistCheckbox.checked;
+    chrome.storage.local.set({ aiImageAssist: enabled });
+    if (aiSettings) aiSettings.style.display = enabled ? "block" : "none";
+    // Notify content script
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (!tabs[0]) return;
+      chrome.tabs.sendMessage(tabs[0].id, { from: "popup", msg: "aiImageAssist", enabled });
+    });
+  });
+}
+
+// Save OpenAI key
+if (saveOpenaiKeyBtn) {
+  saveOpenaiKeyBtn.addEventListener("click", () => {
+    const key = openaiKeyInput.value.trim();
+    chrome.storage.local.set({ openaiKey: key }, () => {
+      console.log("OpenAI key saved");
+    });
+  });
+}
+
+// Save model/prompt/temp
+if (visionModelSelect) {
+  visionModelSelect.addEventListener("change", () => {
+    chrome.storage.local.set({ visionModel: visionModelSelect.value });
+  });
+}
+if (visionPromptText) {
+  visionPromptText.addEventListener("input", () => {
+    chrome.storage.local.set({ visionPrompt: visionPromptText.value });
+  });
+}
+if (visionTempInput) {
+  visionTempInput.addEventListener("change", () => {
+    const t = parseFloat(visionTempInput.value);
+    const temp = Number.isFinite(t) ? t : 0.2;
+    chrome.storage.local.set({ visionTemp: temp });
+  });
+}
 
 /** Switches the popup UI to reflect “running.” */
 function showRunningState() {

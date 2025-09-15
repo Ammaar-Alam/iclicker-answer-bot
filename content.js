@@ -56,6 +56,10 @@ window.onload = () => {
   // Location spoofing variables
   let locationSpoof = false;
   let spoofedLocation = null;
+  // AI image analysis
+  let aiImageAssist = false;
+  let visionPrompt = "";
+  const seenVisionImages = new Set();
 
   // Set default values
   let isFirstTime = true;
@@ -112,6 +116,16 @@ window.onload = () => {
       }
   });
 
+  // Load AI settings
+  chrome.storage.local.get(["aiImageAssist", "visionPrompt"], function (result) {
+      if (typeof result.aiImageAssist === "boolean") {
+          aiImageAssist = result.aiImageAssist;
+      }
+      if (typeof result.visionPrompt === "string") {
+          visionPrompt = result.visionPrompt;
+      }
+  });
+
   let fetchCalled = false;
 
   const observerConfig = {
@@ -130,6 +144,13 @@ window.onload = () => {
           ) {
               for (let node of mutation.addedNodes) {
                   if (node instanceof Element) {
+                      // Detect question images as soon as they appear
+                      if (node.matches && node.matches('.question-image-container img')) {
+                          handleQuestionImage(node);
+                      } else if (node.querySelector) {
+                          const nested = node.querySelector('.question-image-container img');
+                          if (nested) handleQuestionImage(nested);
+                      }
                       if (
                           url.includes("https://student.iclicker.com/#/class")
                       ) {
@@ -247,10 +268,13 @@ window.onload = () => {
                       }
                   }
               }
-          } else if (
-              mutation.type === "attributes" &&
-              mutation.attributeName == "aria-hidden"
-          ) {
+          } else if (mutation.type === "attributes") {
+              // Monitor src swaps on images
+              const t = mutation.target;
+              if (t instanceof Element && t.matches && t.matches('.question-image-container img') && mutation.attributeName === 'src') {
+                  handleQuestionImage(t);
+              }
+              if (mutation.attributeName == "aria-hidden") {
               // console.log('CSS change detected:', mutation.target);
               if (
                   url.includes("https://student.iclicker.com/#/course") &&
@@ -573,6 +597,8 @@ window.onload = () => {
               // Reload to remove the override
               window.location.reload();
           }
+      } else if (message.from == "popup" && message.msg == "aiImageAssist") {
+          aiImageAssist = message.enabled;
       }
   });
 
@@ -588,6 +614,10 @@ window.onload = () => {
       } else if (currentUrl.includes("https://student.iclicker.com/#/class")) {
           chrome.storage.local.set({ prevPage: "poll" });
       }
+      // Initial image scan
+      try {
+          document.querySelectorAll('.question-image-container img').forEach((img) => handleQuestionImage(img));
+      } catch (_) { /* no-op */ }
   }
 
   function stopObserver(status) {
@@ -625,5 +655,63 @@ window.onload = () => {
           clearInterval(intervalId);
           chrome.storage.local.set({ status: "stopped" });
       }
+  }
+  
+  // Analyze a detected question image with OpenAI and render a lightweight panel
+  function handleQuestionImage(imgEl) {
+      try {
+          if (!aiImageAssist) return;
+          const src = imgEl && imgEl.getAttribute('src');
+          if (!src || seenVisionImages.has(src)) return;
+          seenVisionImages.add(src);
+
+          const container = imgEl.closest('.question-data-container') || imgEl.parentElement;
+          if (!container) return;
+          const panel = ensureVisionPanel(container);
+          panel.textContent = 'Analyzing image…';
+
+          callVision(src, visionPrompt).then((res) => {
+              if (!panel.isConnected) return;
+              if (res && res.text) {
+                  panel.textContent = res.text;
+              } else if (res && res.error === 'missing_key') {
+                  panel.textContent = 'OpenAI key not set. Open extension popup to add it.';
+              } else {
+                  panel.textContent = 'Analysis failed.';
+              }
+          });
+      } catch (_) { /* no-op */ }
+  }
+
+  function ensureVisionPanel(container) {
+      let panel = container.querySelector('#bbc-vision-panel');
+      if (panel) return panel;
+      panel = document.createElement('div');
+      panel.id = 'bbc-vision-panel';
+      panel.setAttribute('role', 'status');
+      panel.style.cssText = [
+          'margin-top:8px',
+          'padding:8px 10px',
+          'background:rgba(13,17,23,0.92)',
+          'color:#c9d1d9',
+          'font: 13px/1.4 -apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica,Arial,sans-serif',
+          'border:1px solid #30363d',
+          'border-radius:6px',
+          'white-space:pre-wrap'
+      ].join(';');
+      container.appendChild(panel);
+      return panel;
+  }
+
+  function callVision(imageUrl, prompt) {
+      return new Promise((resolve) => {
+          try {
+              chrome.runtime.sendMessage({ type: 'vision.analyze', imageUrl, prompt }, (resp) => {
+                  resolve(resp || {});
+              });
+          } catch (e) {
+              resolve({ error: 'send_failed' });
+          }
+      });
   }
 };

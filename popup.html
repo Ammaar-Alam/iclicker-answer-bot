@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BetterByeClicker</title>
+  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>/* Prevent FOUC on small popups */ html,body{background:#0d1117}</style>
+  </head>
+<body>
+  <div class="container" id="container">
+    <header class="header">
+      <img class="brand" src="./assets/logo-32.png" alt="" />
+      <div class="title-wrap">
+        <h1 class="title">BetterByeClicker</h1>
+        <span id="statusPill" class="status status--stopped">Stopped</span>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="controls">
+        <button id="start-btn" class="btn btn-primary">Start Answering</button>
+        <button id="stop-btn" class="btn btn-danger" style="display:none;">Stop Answering</button>
+        <p id="runStatus" class="sr-only">Running <span class="loading"></span></p>
+      </div>
+
+      <section class="card">
+        <h2 class="card-title">Behavior</h2>
+        <label class="switch">
+          <input id="random" type="checkbox" />
+          <span class="slider" aria-hidden="true"></span>
+          <span class="label-text">Randomize Answers</span>
+        </label>
+
+        <label class="switch">
+          <input id="autoJoin" type="checkbox" />
+          <span class="slider" aria-hidden="true"></span>
+          <span class="label-text">Auto Join</span>
+        </label>
+
+        <label class="switch">
+          <input id="locationSpoof" type="checkbox" />
+          <span class="slider" aria-hidden="true"></span>
+          <span class="label-text">Spoof Location</span>
+        </label>
+      </section>
+
+      <section id="mapContainer" class="card" style="display:none;">
+        <h2 class="card-title">Location</h2>
+        <label class="field-label">Select Princeton building</label>
+        <select id="buildingSelect" class="select">
+          <option value="">Select a building…</option>
+          <option value="40.34663,-74.65747">Nassau Hall</option>
+          <option value="40.34753,-74.65536">Frist Campus Center</option>
+          <option value="40.34574,-74.65483">McCosh Hall</option>
+          <option value="40.34589,-74.65599">Robertson Hall</option>
+          <option value="40.34513,-74.65456">Fine Hall</option>
+          <option value="40.34482,-74.65232">Lewis Library</option>
+          <option value="40.34412,-74.65093">Friend Center</option>
+          <option value="40.34285,-74.65147">Computer Science Building</option>
+          <option value="40.34894,-74.65961">Dillon Gymnasium</option>
+          <option value="40.34973,-74.65245">McCarter Theatre</option>
+          <option value="40.35033,-74.66087">Whitman College</option>
+          <option value="40.34225,-74.66044">Butler College</option>
+          <option value="40.34577,-74.65884">Wilson College</option>
+          <option value="40.34786,-74.65146">Forbes College</option>
+          <option value="40.34146,-74.65512">Icahn Laboratory</option>
+          <option value="40.34368,-74.65019">Engineering Quadrangle</option>
+          <option value="40.34935,-74.65612">1903 Hall</option>
+          <option value="40.34888,-74.65788">Blair Hall</option>
+          <option value="40.34476,-74.65667">East Pyne Hall</option>
+          <option value="40.34592,-74.65773">Chancellor Green</option>
+        </select>
+
+        <label class="field-label">Or enter custom coordinates</label>
+        <div class="grid-2">
+          <input id="latInput" type="number" step="0.00001" placeholder="Latitude" class="input">
+          <input id="lngInput" type="number" step="0.00001" placeholder="Longitude" class="input">
+        </div>
+        <button id="setCustomLocation" class="btn btn-secondary" disabled>Set Custom Location</button>
+        <div id="locationInfo" class="muted"><span id="selectedLocation">No location selected</span></div>
+        <button id="clearLocation" class="btn btn-ghost" style="display:none;">Clear Location</button>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Created by Ammaar Alam</p>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

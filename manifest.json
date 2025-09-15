@@ -1,0 +1,42 @@
+{
+    "name": "BetterByeClicker",
+    "version": "1.0",
+    "description": "Automatically joins and answers iClicker questions for you, even if you're not tabbed in. Randomly selects an answer whenever a question pops up.",
+    "manifest_version": 3,
+    "author": "Ammaar Alam",
+    "action": {
+      "default_title": "BetterByeClicker",
+      "default_popup": "popup.html",
+      "default_icon": "./assets/logo-32.png"
+    },
+    "icons": {
+      "16": "./assets/logo-16.png",
+      "32": "./assets/logo-32.png",
+      "48": "./assets/logo-48.png",
+      "128": "./assets/logo-128.png"
+    },
+    "permissions": [
+      "storage",
+      "tabs",
+      "geolocation"
+    ],
+    "host_permissions": [
+      "https://student.iclicker.com/*",
+      "https://api.iclicker.com/*"
+    ],
+    "content_scripts": [
+      {
+        "matches": [
+          "https://student.iclicker.com/*"
+        ],
+        "js": [
+          "content.js"
+        ],
+        "run_at": "document_end"
+      }
+    ],
+    "background": {
+      "service_worker": "background.js"
+    }
+  }
+  

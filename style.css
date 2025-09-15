@@ -1,0 +1,123 @@
+/*
+  Polished popup styling
+  - Consistent spacing and typography
+  - Clean switches and buttons
+  - Cards for settings
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+
+:root {
+  --bg: #0d1117;
+  --card: #121821;
+  --border: #1f2937;
+  --text: #e5e7eb;
+  --muted: #a3aab7;
+  --primary: linear-gradient(135deg, #3b82f6, #06b6d4);
+  --danger: linear-gradient(135deg, #ef4444, #f59e0b);
+  --secondary: linear-gradient(135deg, #7c3aed, #06b6d4);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 360px;
+  min-height: 440px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 12px 10px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.title-wrap { display: flex; align-items: baseline; gap: 8px; }
+.title { font-size: 18px; font-weight: 800; margin: 0; }
+
+.status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.status--running { color: #10b981; border-color: rgba(16,185,129,.25); background: rgba(16,185,129,.08); }
+.status--stopped { color: #f87171; border-color: rgba(248,113,113,.25); background: rgba(248,113,113,.08); }
+
+.content { display: flex; flex-direction: column; gap: 12px; }
+.controls { display: flex; gap: 8px; align-items: center; }
+
+.btn { 
+  border: none; border-radius: 8px; cursor: pointer; 
+  padding: 9px 12px; font-weight: 700; font-size: 13px; color: #fff; 
+  transition: transform .15s ease, opacity .15s ease; 
+}
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--primary); }
+.btn-secondary { background: var(--secondary); width: 100%; }
+.btn-danger { background: var(--danger); }
+.btn-ghost { background: transparent; color: #fca5a5; border: 1px solid rgba(252,165,165,.35); }
+.card .btn-ghost { width: fit-content; margin: 0 auto; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+.card-title { margin: 0 0 8px; font-size: 12px; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; font-weight: 800; }
+
+/* Switches */
+.switch { display:flex; align-items:center; gap: 10px; padding: 8px 0; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch .slider { position: relative; width: 42px; height: 24px; background: #1c2330; border-radius: 999px; border: 1px solid var(--border); transition: background .2s ease; }
+.switch .slider::after { content: ""; position:absolute; top: 2px; left: 2px; width: 18px; height: 18px; background:#fff; border-radius: 50%; transition: transform .2s ease; }
+.switch input:checked + .slider { background: linear-gradient(135deg, #7c3aed, #06b6d4); }
+.switch input:checked + .slider::after { transform: translateX(18px); }
+.switch .label-text { font-size: 14px; }
+
+/* Fields */
+.field-label { display:block; font-size: 12px; color: var(--muted); margin: 6px 0 6px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.input, .select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #0f1420;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.muted { color: var(--muted); font-size: 12px; text-align: center; margin: 8px 0; }
+
+.footer { text-align:center; color: var(--muted); font-size: 12px; padding-top: 4px; }
+.footer p { margin: 0; }
+
+/* Utility */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Legacy bits kept for compatibility (loading animation) */
+.loading { animation: pulse 1s steps(3, end) infinite; display: inline-block; vertical-align: middle; }
+@keyframes pulse { 0%{opacity:1} 50%{opacity:.3} 100%{opacity:1} }
+
+/* Map container spacing when visible */
+#mapContainer { margin-top: -4px; }

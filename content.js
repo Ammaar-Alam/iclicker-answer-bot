@@ -60,6 +60,7 @@ window.onload = () => {
   let aiImageAssist = false;
   let visionPrompt = "";
   const seenVisionImages = new Set();
+  let aiPendingChoice = false;
 
   // Set default values
   let isFirstTime = true;
@@ -135,215 +136,100 @@ window.onload = () => {
       subtree: true,
   };
 
-  const observer = new MutationObserver(function (mutationsList) {
+  function handleAddedNodes(mutationsList) {
       const url = window.location.href;
       for (let mutation of mutationsList) {
-          if (
-              mutation.type === "childList" &&
-              mutation.addedNodes.length > 0
-          ) {
-              for (let node of mutation.addedNodes) {
-                  if (node instanceof Element) {
-                      // Detect question images as soon as they appear
-                      if (node.matches && node.matches('.question-image-container img')) {
-                          handleQuestionImage(node);
-                      } else if (node.querySelector) {
-                          const nested = node.querySelector('.question-image-container img');
-                          if (nested) handleQuestionImage(nested);
-                      }
-                      if (
-                          url.includes("https://student.iclicker.com/#/class")
-                      ) {
-                          chrome.storage.local.set({ prevPage: "poll" });
-                          if (url.includes("/poll")) {
-                              if (isFirstTime && !activityId) {
-                                  setActivityId();
-                                  isFirstTime = false;
-                              }
-                              // console.log(node);
-                              // Listening for next question
-                              if (node.matches(".question-type-container")) {
-                                  setTimeout(() => {
-                                      setVariables();
-                                  }, 3000);
-                                  try {
-                                      const btns =
-                                          document.querySelectorAll(
-                                              ".btn-container"
-                                          );
-                                      if (random) {
-                                          var optionIndex = getRandomInteger(
-                                              btns.length
-                                          );
-                                      } else {
-                                          var optionIndex = 0;
-                                      }
-                                      // notify backend to send email
-                                      if (notify && !fetchCalled) {
-                                          fetchCalled = true;
-                                          let img =
-                                              "https://institutional-web-assets-share.s3.amazonaws.com/iClicker/student/images/image_hidden_2.png";
-                                          const imgContainer =
-                                              document.querySelector(
-                                                  ".question-image-container"
-                                              );
-                                          setTimeout(() => {
-                                              const source =
-                                                  imgContainer.querySelector(
-                                                      "img"
-                                                  ).src;
-                                              if (
-                                                  source != undefined &&
-                                                  source != ""
-                                              ) {
-                                                  img =
-                                                      imgContainer.querySelector(
-                                                          "img"
-                                                      ).src;
-                                              }
-                                              callFurther();
-                                          }, 1000);
+          if (mutation.type !== 'childList' || mutation.addedNodes.length === 0) continue;
+          for (let node of mutation.addedNodes) {
+              if (!(node instanceof Element)) continue;
 
-                                          function callFurther() {
-                                              chrome.storage.local.get(
-                                                  ["email"],
-                                                  (result) => {
-                                                      const email =
-                                                          result.email;
-                                                      fetch(
-                                                          `${HOST}/notify`,
-                                                          {
-                                                              method: "POST",
-                                                              headers: {
-                                                                  "Content-Type":
-                                                                      "application/json",
-                                                              },
-                                                              body: JSON.stringify(
-                                                                  {
-                                                                      email: email,
-                                                                      type: "ques",
-                                                                      img: img,
-                                                                  }
-                                                              ),
-                                                          }
-                                                      )
-                                                          .then((res) =>
-                                                              res.json()
-                                                          )
-                                                          .then((data) => {
-                                                              // console.log(data);
-                                                              fetchCalled = false;
-                                                              clearInterval(
-                                                                  intervalId
-                                                              );
-                                                              checkAnswer(
-                                                                  btns,
-                                                                  optionIndex
-                                                              );
-                                                          })
-                                                          .catch((err) => {
-                                                              console.log(
-                                                                  err
-                                                              );
-                                                              fetchCalled = false;
-                                                              clearInterval(
-                                                                  intervalId
-                                                              );
-                                                              checkAnswer(
-                                                                  btns,
-                                                                  optionIndex
-                                                              );
-                                                          });
-                                                  }
-                                              );
-                                          }
-                                      }
-                                      clearInterval(intervalId);
-                                      checkAnswer(btns, optionIndex);
-                                  } catch (error) {
-                                      console.log("buttons not found");
-                                  }
-                              }
-                          }
-                      }
-                  }
+              // Detect question images as soon as they appear
+              if (node.matches && node.matches('.question-image-container img')) {
+                  handleQuestionImage(node);
+              } else if (node.querySelector) {
+                  const nested = node.querySelector('.question-image-container img');
+                  if (nested) handleQuestionImage(nested);
               }
-          } else if (mutation.type === "attributes") {
-              // Monitor src swaps on images
-              const t = mutation.target;
-              if (t instanceof Element && t.matches && t.matches('.question-image-container img') && mutation.attributeName === 'src') {
-                  handleQuestionImage(t);
-              }
-              if (mutation.attributeName == "aria-hidden") {
-              // console.log('CSS change detected:', mutation.target);
-              if (
-                  url.includes("https://student.iclicker.com/#/course") &&
-                  url.includes("/overview")
-              ) {
-                  // console.log("course page");
-                  chrome.storage.local.get(["prevPage"], function (result) {
-                      if (result.prevPage == "poll") {
-                          stopObserver("default");
+
+              // Poll answering
+              if (url.includes("https://student.iclicker.com/#/class")) {
+                  chrome.storage.local.set({ prevPage: "poll" });
+                  if (url.includes("/poll")) {
+                      if (isFirstTime && !activityId) {
+                          setActivityId();
+                          isFirstTime = false;
                       }
-                  });
-                  // console.log(mutation.attributeName);
-                  if (autoJoin) {
-                      try {
-                          if (
-                              document
-                                  .querySelector(".course-join-container")
-                                  .classList.contains("expanded")
-                          ) {
+                      if (node.matches(".question-type-container")) {
+                          setTimeout(() => setVariables(), 3000);
+                          try {
+                              const btns = document.querySelectorAll(".btn-container");
+                              const hasImage = !!document.querySelector('.question-image-container img');
+                              let optionIndex = 0;
+                              if (random) optionIndex = getRandomInteger(btns.length);
+
+                              // Optional: notify backend when a question appears
                               if (notify && !fetchCalled) {
                                   fetchCalled = true;
-                                  // notify backend to send email
-                                  chrome.storage.local.get(
-                                      ["email"],
-                                      (result) => {
-                                          const email = result.email;
-                                          fetch(`${HOST}/notify`, {
-                                              method: "POST",
-                                              headers: {
-                                                  "Content-Type":
-                                                      "application/json",
-                                              },
-                                              body: JSON.stringify({
-                                                  email: email,
-                                                  type: "classStart",
-                                              }),
-                                          })
-                                              .then((res) => res.json())
-                                              .then((data) => {
-                                                  // console.log(data);
-                                                  document
-                                                      .querySelector(
-                                                          "#btnJoin"
-                                                      )
-                                                      .click();
-                                                  fetchCalled = false;
-                                                  setActivityId();
-                                              })
-                                              .catch((err) =>
-                                                  console.log(err)
-                                              );
-                                      }
-                                  );
+                                  let img = "https://institutional-web-assets-share.s3.amazonaws.com/iClicker/student/images/image_hidden_2.png";
+                                  try {
+                                      const imgEl = document.querySelector('.question-image-container img');
+                                      if (imgEl && imgEl.src) img = imgEl.src;
+                                  } catch (_) {}
+                                  chrome.storage.local.get(["email"], (result) => {
+                                      const email = result.email;
+                                      fetch(`${HOST}/notify`, {
+                                          method: "POST",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ email, type: "ques", img })
+                                      })
+                                      .finally(() => { fetchCalled = false; });
+                                  });
                               }
-                              document.querySelector("#btnJoin").click();
-                              setActivityId();
+
+                              // If AI enabled and image present, wait for AI to choose
+                              if (aiImageAssist && hasImage) {
+                                  aiPendingChoice = true;
+                                  // trigger handleQuestionImage again to kick off choose flow
+                                  const imgEl = document.querySelector('.question-image-container img');
+                                  if (imgEl) handleQuestionImage(imgEl);
+                              } else {
+                                  clearInterval(intervalId);
+                                  checkAnswer(btns, optionIndex);
+                              }
+                          } catch (error) {
+                              console.log("buttons not found");
                           }
-                          // Fallback: click Join if the button is visible even if container state changed
-                          else if (document.querySelector("#btnJoin")) {
-                              document.querySelector("#btnJoin").click();
-                              setActivityId();
-                          }
-                      } catch (error) {
-                          console.log("join button not found");
                       }
                   }
               }
           }
       }
+  }
+
+  function handleAttributeMutation(mutationsList) {
+      const url = window.location.href;
+      for (let mutation of mutationsList) {
+          if (mutation.type !== 'attributes') continue;
+
+          const t = mutation.target;
+          if (t instanceof Element && t.matches && t.matches('.question-image-container img') && mutation.attributeName === 'src') {
+              handleQuestionImage(t);
+          }
+
+          if (mutation.attributeName == "aria-hidden") {
+              if (url.includes("https://student.iclicker.com/#/course") && url.includes("/overview")) {
+                  chrome.storage.local.get(["prevPage"], function (result) {
+                      if (result.prevPage == "poll") stopObserver("default");
+                  });
+                  if (autoJoin) attemptJoinClass(5000);
+              }
+          }
+      }
+  }
+
+  const observer = new MutationObserver((mutationsList) => {
+      handleAddedNodes(mutationsList);
+      handleAttributeMutation(mutationsList);
   });
 
   function checkAnswer(btns, optionIndex) {
@@ -511,13 +397,15 @@ window.onload = () => {
   chrome.runtime.onMessage.addListener((message) => {
       if (message.from == "popup" && message.msg == "start") {
           const url = window.location.href;
-          if (
-              url.includes("https://student.iclicker.com/#/class") &&
-              url.includes("/poll")
-          ) {
-              setTimeout(() => {
-                  setVariables();
-              }, 3000);
+      if (
+          url.includes("https://student.iclicker.com/#/class") &&
+          url.includes("/poll")
+      ) {
+          // Also try joining in case join prompt is already visible
+          attemptJoinClass(5000);
+          setTimeout(() => {
+              setVariables();
+          }, 3000);
               try {
                   const btns = document.querySelectorAll(".btn-container");
                   if (random) {
@@ -657,7 +545,31 @@ window.onload = () => {
       }
   }
   
-  // Analyze a detected question image with OpenAI and render a lightweight panel
+  // Attempt to join class proactively for a limited time window
+  function attemptJoinClass(timeoutMs = 4000) {
+      if (!autoJoin) return;
+      const start = Date.now();
+      const tryClick = () => {
+          if (Date.now() - start > timeoutMs) return;
+          try {
+              let btn = document.querySelector('#btnJoin');
+              if (!btn) {
+                  // heuristic search for a Join button
+                  const candidates = Array.from(document.querySelectorAll('button, a[role="button"]'));
+                  btn = candidates.find(b => /\bjoin\b/i.test((b.innerText || b.textContent || '').trim())) || null;
+              }
+              if (btn) {
+                  btn.click();
+                  setActivityId();
+                  return; // stop trying
+              }
+          } catch (_) { /* no-op */ }
+          setTimeout(tryClick, 500);
+      };
+      tryClick();
+  }
+  
+  // Analyze a detected question image with OpenAI and render result; if enabled, auto-select answer
   function handleQuestionImage(imgEl) {
       try {
           if (!aiImageAssist) return;
@@ -670,14 +582,23 @@ window.onload = () => {
           const panel = ensureVisionPanel(container);
           panel.textContent = 'Analyzing image…';
 
-          callVision(src, visionPrompt).then((res) => {
+          const choices = extractChoices();
+          const questionText = extractQuestionText(container);
+
+          callVisionChoose(src, choices, questionText).then((res) => {
               if (!panel.isConnected) return;
-              if (res && res.text) {
-                  panel.textContent = res.text;
+              if (res && res.letter) {
+                  panel.textContent = `AI chose: ${res.letter}`;
+                  clickOptionByLetter(res.letter);
               } else if (res && res.error === 'missing_key') {
                   panel.textContent = 'OpenAI key not set. Open extension popup to add it.';
               } else {
-                  panel.textContent = 'Analysis failed.';
+                  panel.textContent = 'Analysis failed. Falling back to default.';
+                  // Fallback to existing behavior
+                  const btns = document.querySelectorAll('.btn-container');
+                  const idx = random ? getRandomInteger(btns.length) : 0;
+                  clearInterval(intervalId);
+                  checkAnswer(btns, idx);
               }
           });
       } catch (_) { /* no-op */ }
@@ -713,5 +634,42 @@ window.onload = () => {
               resolve({ error: 'send_failed' });
           }
       });
+  }
+
+  function callVisionChoose(imageUrl, choices, questionText) {
+      return new Promise((resolve) => {
+          try {
+              chrome.runtime.sendMessage({ type: 'vision.choose', imageUrl, choices, questionText }, (resp) => {
+                  resolve(resp || {});
+              });
+          } catch (e) {
+              resolve({ error: 'send_failed' });
+          }
+      });
+  }
+
+  function extractChoices() {
+      try {
+          const nodes = Array.from(document.querySelectorAll('.btn-container'));
+          if (!nodes.length) return [];
+          return nodes.map(n => (n.innerText || n.textContent || '').trim());
+      } catch (_) { return []; }
+  }
+
+  function extractQuestionText(container) {
+      try {
+          const el = container.querySelector('.question-text, .question, .question-prompt') || container;
+          const t = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+          return t.slice(0, 600);
+      } catch (_) { return ''; }
+  }
+
+  function clickOptionByLetter(letter) {
+      aiPendingChoice = false;
+      const map = { A:0, B:1, C:2, D:3, E:4 };
+      const idx = map[letter] ?? (random ? getRandomInteger(document.querySelectorAll('.btn-container').length) : 0);
+      const btns = document.querySelectorAll('.btn-container');
+      clearInterval(intervalId);
+      checkAnswer(btns, idx);
   }
 };

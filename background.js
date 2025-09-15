@@ -107,5 +107,66 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     );
     return true; // keep the message channel open for async sendResponse
   }
+  if (message && message.type === "vision.choose") {
+    const { imageUrl, choices, questionText } = message;
+    chrome.storage.local.get(
+      ["openaiKey", "visionModel", "visionTemp", "visionPrompt"],
+      async (cfg) => {
+        const apiKey = cfg.openaiKey || "";
+        const model = cfg.visionModel || "gpt-4o-mini";
+        const temperature = typeof cfg.visionTemp === "number" ? cfg.visionTemp : 0;
+        if (!apiKey) {
+          sendResponse({ error: "missing_key" });
+          return;
+        }
+        const basePrompt = cfg.visionPrompt && cfg.visionPrompt.trim().length > 0
+          ? cfg.visionPrompt.trim()
+          : "You are solving a multiple-choice question (A–E). Analyze the image and the choices and reply with only a single uppercase letter from A to E for the best answer. If you truly cannot determine, reply with a single question mark '?'";
+        const choiceText = Array.isArray(choices) && choices.length
+          ? `Choices:\n${choices.map((c, i)=>String.fromCharCode(65+i)+": "+c).join("\n")}`
+          : "";
+        const qText = questionText ? `Question: ${questionText}` : "";
+        try {
+          const res = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: "Return only one character: A, B, C, D, or E (or '?' if impossible)." },
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: `${basePrompt}\n${qText}\n${choiceText}`.trim() },
+                    { type: "image_url", image_url: { url: imageUrl } }
+                  ]
+                }
+              ],
+              temperature,
+              max_tokens: 5
+            })
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            sendResponse({ error: `openai_http_${res.status}`, details: errText.slice(0, 300) });
+            return;
+          }
+          const data = await res.json();
+          let text = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "";
+          text = (text || "").trim().toUpperCase();
+          // Extract first valid letter
+          const match = text.match(/[A-E]/);
+          const letter = match ? match[0] : null;
+          sendResponse({ letter, raw: text });
+        } catch (e) {
+          sendResponse({ error: "openai_fetch_error" });
+        }
+      }
+    );
+    return true;
+  }
 });
   

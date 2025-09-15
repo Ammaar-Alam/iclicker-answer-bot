@@ -36,8 +36,18 @@
         "run_at": "document_start"
       }
     ],
-    "background": {
-      "service_worker": "background.js"
+  "background": {
+    "service_worker": "background.js"
+    },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "inject-geo.js"
+      ],
+      "matches": [
+        "https://student.iclicker.com/*"
+      ]
     }
+  ]
   }
   

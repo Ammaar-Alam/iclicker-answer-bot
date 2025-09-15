@@ -1,6 +1,8 @@
 // Apply geolocation override as early as possible (CSP-safe)
 (function() {
     try {
+        if (window.top !== window) return; // avoid sandboxed subframes
+        if (!chrome || !chrome.runtime || !chrome.runtime.getURL) return;
         const stored = localStorage.getItem('iclicker_location_data');
         if (!stored) return;
         const data = JSON.parse(stored);
@@ -182,12 +184,13 @@ window.onload = () => {
               handleQuestionImage(t);
           }
 
-          if (mutation.attributeName == "aria-hidden") {
+              if (mutation.attributeName == "aria-hidden") {
               if (url.includes("https://student.iclicker.com/#/course") && url.includes("/overview")) {
                   chrome.storage.local.get(["prevPage"], function (result) {
                       if (result.prevPage == "poll") stopObserver("default");
                   });
-                  if (autoJoin) attemptJoinClass(5000);
+                  // Try join when course overview expands
+                  attemptJoinClass(5000, false);
               }
           }
       }
@@ -324,14 +327,14 @@ window.onload = () => {
   chrome.runtime.onMessage.addListener((message) => {
       if (message.from == "popup" && message.msg == "start") {
           const url = window.location.href;
-          // Try to click Join promptly if visible
-          attemptJoinClass(5000);
+          // Try to click Join promptly if visible (force join on Start)
+          attemptJoinClass(5000, true);
           if (
               url.includes("https://student.iclicker.com/#/class") &&
               url.includes("/poll")
           ) {
           // Also try joining in case join prompt is already visible
-          attemptJoinClass(5000);
+          attemptJoinClass(5000, true);
           setTimeout(() => {
               setVariables();
           }, 3000);
@@ -475,8 +478,8 @@ window.onload = () => {
   }
   
   // Attempt to join class proactively for a limited time window
-  function attemptJoinClass(timeoutMs = 4000) {
-      if (!autoJoin) return;
+  function attemptJoinClass(timeoutMs = 4000, force = false) {
+      if (!force && !autoJoin) return;
       const start = Date.now();
       const tryClick = () => {
           if (Date.now() - start > timeoutMs) return;

@@ -1,4 +1,5 @@
 # BetterByeClicker (iClicker helper)
+(Disclaimer: AI-generated readme)
 
 Automatically joins and answers iClicker questions for you. Includes optional AI Image Assist to analyze image-based questions and pick an answer.
 <img width="760" height="1260" alt="CleanShot 2025-09-15 at 09 31 42@2x" src="https://github.com/user-attachments/assets/02a67ed7-4198-48db-998c-e678b4a4739f" />

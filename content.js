@@ -1,49 +1,15 @@
-// Apply geolocation override as early as possible
+// Apply geolocation override as early as possible (CSP-safe)
 (function() {
-    // Check if we have a spoofed location saved
-    const storedData = localStorage.getItem('iclicker_location_data');
-    if (storedData) {
-        const data = JSON.parse(storedData);
-        if (data.enabled && data.location) {
-            // Apply override immediately
-            const script = document.createElement('script');
-            script.textContent = `
-                (function() {
-                    const fakeLat = ${data.location.lat};
-                    const fakeLng = ${data.location.lng};
-                    
-                    const fakePosition = {
-                        coords: {
-                            latitude: fakeLat,
-                            longitude: fakeLng,
-                            altitude: null,
-                            accuracy: 10,
-                            altitudeAccuracy: null,
-                            heading: null,
-                            speed: null
-                        },
-                        timestamp: Date.now()
-                    };
-                    
-                    navigator.geolocation.getCurrentPosition = function(successCallback, errorCallback, options) {
-                        console.log('Early location spoof to:', fakeLat, fakeLng);
-                        if (successCallback) {
-                            setTimeout(() => successCallback(fakePosition), 100);
-                        }
-                    };
-                    
-                    navigator.geolocation.watchPosition = function(successCallback, errorCallback, options) {
-                        if (successCallback) {
-                            setTimeout(() => successCallback(fakePosition), 100);
-                        }
-                        return Math.floor(Math.random() * 10000);
-                    };
-                })();
-            `;
-            document.documentElement.appendChild(script);
-            script.remove();
-        }
-    }
+    try {
+        const stored = localStorage.getItem('iclicker_location_data');
+        if (!stored) return;
+        const data = JSON.parse(stored);
+        if (!data || !data.enabled || !data.location) return;
+        const s = document.createElement('script');
+        s.src = chrome.runtime.getURL('inject-geo.js');
+        s.async = false;
+        (document.documentElement || document.head || document.body).appendChild(s);
+    } catch (_) {}
 })();
 
 window.onload = () => {
@@ -333,74 +299,37 @@ window.onload = () => {
           location: spoofedLocation
       }));
       
-      // Inject script to override geolocation in the page context
-      const script = document.createElement('script');
-      script.textContent = `
-          (function() {
-              const fakeLat = ${spoofedLocation.lat};
-              const fakeLng = ${spoofedLocation.lng};
-              
-              // Create fake position object
-              const fakePosition = {
-                  coords: {
-                      latitude: fakeLat,
-                      longitude: fakeLng,
-                      altitude: null,
-                      accuracy: 10,
-                      altitudeAccuracy: null,
-                      heading: null,
-                      speed: null
-                  },
-                  timestamp: Date.now()
-              };
-              
-              // Override getCurrentPosition
-              const originalGetCurrentPosition = navigator.geolocation.getCurrentPosition;
-              navigator.geolocation.getCurrentPosition = function(successCallback, errorCallback, options) {
-                  console.log('Location spoofed to:', fakeLat, fakeLng);
-                  if (successCallback) {
-                      setTimeout(() => successCallback(fakePosition), 100);
-                  }
-              };
-              
-              // Override watchPosition
-              const originalWatchPosition = navigator.geolocation.watchPosition;
-              navigator.geolocation.watchPosition = function(successCallback, errorCallback, options) {
-                  console.log('Watch position spoofed to:', fakeLat, fakeLng);
-                  if (successCallback) {
-                      setTimeout(() => successCallback(fakePosition), 100);
-                  }
-                  return Math.floor(Math.random() * 10000); // Return fake watch ID
-              };
-              
-              console.log('Geolocation override installed');
-          })();
-      `;
-      
-      // Inject the script at the beginning of the page
-      if (document.head) {
-          document.head.appendChild(script);
-          script.remove();
+      // Inject static script file (CSP-safe) into page context
+      const inject = () => {
+          try {
+              const s = document.createElement('script');
+              s.src = chrome.runtime.getURL('inject-geo.js');
+              s.async = false;
+              (document.head || document.documentElement || document.body).appendChild(s);
+          } catch (_) {}
+      };
+      if (document.head || document.documentElement || document.body) {
+          inject();
       } else {
-          // If head is not available yet, wait for it
-          const observer = new MutationObserver((mutations, obs) => {
-              if (document.head) {
-                  document.head.appendChild(script);
-                  script.remove();
+          const mo = new MutationObserver((mut, obs) => {
+              if (document.head || document.documentElement || document.body) {
+                  inject();
                   obs.disconnect();
               }
           });
-          observer.observe(document.documentElement, { childList: true, subtree: true });
+          mo.observe(document, { childList: true, subtree: true });
       }
   }
 
   chrome.runtime.onMessage.addListener((message) => {
       if (message.from == "popup" && message.msg == "start") {
           const url = window.location.href;
-      if (
-          url.includes("https://student.iclicker.com/#/class") &&
-          url.includes("/poll")
-      ) {
+          // Try to click Join promptly if visible
+          attemptJoinClass(5000);
+          if (
+              url.includes("https://student.iclicker.com/#/class") &&
+              url.includes("/poll")
+          ) {
           // Also try joining in case join prompt is already visible
           attemptJoinClass(5000);
           setTimeout(() => {
@@ -574,16 +503,17 @@ window.onload = () => {
       try {
           if (!aiImageAssist) return;
           const src = imgEl && imgEl.getAttribute('src');
-          if (!src || seenVisionImages.has(src)) return;
-          seenVisionImages.add(src);
-
           const container = imgEl.closest('.question-data-container') || imgEl.parentElement;
           if (!container) return;
+          const qText = extractQuestionText(container);
+          const key = src ? (src + '|' + (qText || '').slice(0, 120)) : '';
+          if (!src || seenVisionImages.has(key)) return;
+          seenVisionImages.add(key);
           const panel = ensureVisionPanel(container);
           panel.textContent = 'Analyzing image…';
 
           const choices = extractChoices();
-          const questionText = extractQuestionText(container);
+          const questionText = qText;
 
           callVisionChoose(src, choices, questionText).then((res) => {
               if (!panel.isConnected) return;
